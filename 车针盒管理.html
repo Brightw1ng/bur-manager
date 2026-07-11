@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>口腔车针管理 · 拖拽排序 · 布局保存</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
+        body {
+            background: #f2f6fe;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .app {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.06);
+            padding: 28px 30px 35px;
+            transition: 0.2s;
+        }
+        h1 {
+            font-size: 26px;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+            color: #1a2a3c;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sub {
+            color: #4a647e;
+            font-size: 15px;
+            margin-bottom: 22px;
+            border-left: 4px solid #7b9bcb;
+            padding-left: 16px;
+            background: #f0f6ff;
+            border-radius: 0 20px 20px 0;
+            line-height: 1.4;
+        }
+        .status-msg {
+            background: #e2ebf6;
+            border-radius: 50px;
+            padding: 5px 16px;
+            font-size: 13px;
+            color: #1f3d5a;
+        }
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 22px;
+            background: #f0f4fc;
+            border-radius: 40px;
+            padding: 4px;
+            width: fit-content;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 10px 28px;
+            border-radius: 36px;
+            font-weight: 600;
+            font-size: 15px;
+            color: #3a5775;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .tab-btn.active {
+            background: white;
+            color: #1a2a3c;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+        .tab-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.5);
+        }
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0.6; transform: translateY(4px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== 车针盒 ===== */
+        .box-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .box-header h3 {
+            margin: 0;
+            font-weight: 500;
+            color: #1e2b3c;
+            font-size: 18px;
+        }
+        .badge {
+            background: #dce5f2;
+            border-radius: 30px;
+            padding: 5px 14px;
+            font-size: 14px;
+            color: #1e3b5c;
+            margin-left: 8px;
+        }
+        .grid-box {
+            display: grid;
+            gap: 10px;
+            background: #f1f6fe;
+            padding: 18px 16px;
+            border-radius: 32px;
+            min-height: 180px;
+            border: 2px dashed #c9d8ec;
+            transition: 0.1s;
+        }
+        .well {
+            background: white;
+            border-radius: 16px;
+            aspect-ratio: 1/1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 500;
+            color: #1a2a3f;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            border: 2px solid #dfe9f5;
+            transition: 0.1s;
+            padding: 3px;
+            text-align: center;
+            word-break: break-word;
+            position: relative;
+            gap: 1px;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+        }
+        /* 拖拽相关 */
+        .well.draggable {
+            cursor: grab;
+        }
+        .well.draggable:active {
+            cursor: grabbing;
+        }
+        .well.drag-over {
+            border-color: #4f8bc9;
+            background: #e3efff;
+            transform: scale(1.02);
+            box-shadow: 0 4px 16px rgba(79, 139, 201, 0.25);
+        }
+        .well.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+        .well .bur-name {
+            font-size: 9px;
+            line-height: 1.1;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 600;
+            padding: 0 2px;
+        }
+        .well .speed-tag {
+            font-size: 8px;
+            background: rgba(0,0,0,0.05);
+            padding: 0 6px;
+            border-radius: 20px;
+            color: #1e3a5a;
+            letter-spacing: 0.2px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .well .color-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.08);
+            flex-shrink: 0;
+        }
+        .well.filled {
+            border-color: #b3cce6;
+            background: #ffffff;
+        }
+        .well.empty {
+            background: #f6faff;
+            color: #8fa3ba;
+            border-style: dashed;
+            border-color: #bccfe0;
+            cursor: default;
+        }
+        .well.empty.droppable {
+            border-color: #7b9bcb;
+            background: #f3f9ff;
+        }
+        .well .remove-icon {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            font-size: 12px;
+            color: #b0c8df;
+            cursor: pointer;
+            opacity: 0;
+            transition: 0.15s;
+            background: rgba(255,255,255,0.7);
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+        .well.filled:hover .remove-icon {
+            opacity: 1;
+        }
+        .well .remove-icon:hover {
+            color: #c74a4a;
+            background: #fff0f0;
+        }
+
+        .grid-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+            background: #f6faff;
+            padding: 10px 16px;
+            border-radius: 40px;
+        }
+        .grid-control label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1f344b;
+        }
+        .grid-control input {
+            width: 52px;
+            padding: 5px 4px;
+            border-radius: 30px;
+            border: 1px solid #d2dfef;
+            text-align: center;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .grid-control button {
+            background: #e2ebf9;
+            border: 1px solid #b7cee8;
+            border-radius: 30px;
+            padding: 5px 16px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .grid-control button:hover {
+            background: #d1e0f5;
+        }
+
+        .layout-save-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 14px;
+            flex-wrap: wrap;
+            background: #f0f6fe;
+            padding: 10px 18px;
+            border-radius: 40px;
+            border: 1px solid #dce7f5;
+        }
+        .layout-save-area label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1f344b;
+        }
+        .layout-save-area input {
+            border: 1px solid #d2dfef;
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+            flex: 1;
+            min-width: 120px;
+        }
+        .layout-save-area input:focus {
+            border-color: #4f8bc9;
+        }
+        .layout-save-area select {
+            border: 1px solid #d2dfef;
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+            min-width: 120px;
+        }
+        .layout-save-area button {
+            background: #1e2b3c;
+            border: none;
+            border-radius: 30px;
+            padding: 6px 18px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.15s;
+            white-space: nowrap;
+        }
+        .layout-save-area button:hover {
+            background: #2f4057;
+        }
+        .layout-save-area button.secondary {
+            background: #e2ebf9;
+            color: #1f344b;
+            border: 1px solid #b7cee8;
+        }
+        .layout-save-area button.secondary:hover {
+            background: #d1e0f5;
+        }
+        .layout-save-area button.danger {
+            background: #fce8e8;
+            color: #b34141;
+            border: 1px solid #f0c8c8;
+        }
+        .layout-save-area button.danger:hover {
+            background: #f8d6d6;
+        }
+
+        .helper-text {
+            font-size: 13px;
+            color: #5b7188;
+            margin-top: 12px;
+            background: #f2f8ff;
+            padding: 8px 16px;
+            border-radius: 40px;
+            display: inline-block;
+        }
+
+        /* ===== 车针库 ===== */
+        .library-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .library-header h3 {
+            margin: 0;
+            font-weight: 500;
+            color: #1e2b3c;
+            font-size: 18px;
+        }
+        .library-toolbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .library-toolbar button {
+            background: #e2ebf9;
+            border: 1px solid #b7cee8;
+            border-radius: 30px;
+            padding: 5px 16px;
+            font-weight: 500;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .library-toolbar button:hover {
+            background: #d1e0f5;
+        }
+        .library-toolbar button.primary {
+            background: #1e2b3c;
+            border-color: #1e2b3c;
+            color: white;
+        }
+        .library-toolbar button.primary:hover {
+            background: #2f4057;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-bar input {
+            flex: 1;
+            min-width: 140px;
+            border: 1px solid #d2dfef;
+            border-radius: 40px;
+            padding: 8px 16px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+        }
+        .filter-bar input:focus {
+            border-color: #4f8bc9;
+        }
+        .filter-bar select {
+            border: 1px solid #d2dfef;
+            border-radius: 40px;
+            padding: 8px 16px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+            min-width: 100px;
+        }
+        .filter-bar .filter-clear {
+            background: #f0f4fc;
+            border: 1px solid #d2dfef;
+            border-radius: 40px;
+            padding: 8px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #3a5775;
+        }
+        .filter-bar .filter-clear:hover {
+            background: #e4ebf5;
+        }
+
+        .library-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .library-item {
+            background: white;
+            border-radius: 40px;
+            padding: 8px 14px;
+            border: 1px solid #dce7f5;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: 0.1s;
+            cursor: pointer;
+        }
+        .library-item:hover {
+            background: #eef5fe;
+            border-color: #9ab7dd;
+        }
+        .library-item.selected {
+            background: #dce8f9;
+            border-color: #4f8bc9;
+            box-shadow: 0 0 0 2px rgba(79, 139, 201, 0.2);
+        }
+        .library-item .color-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.06);
+            flex-shrink: 0;
+        }
+        .library-item .item-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+        .library-item .item-name {
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .library-item .item-meta {
+            font-size: 11px;
+            color: #5a7492;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .library-item .speed-badge {
+            font-size: 10px;
+            background: #e4edf8;
+            padding: 1px 10px;
+            border-radius: 30px;
+            font-weight: 600;
+            color: #1f3b5a;
+        }
+        .library-item .vendor-tag {
+            font-size: 10px;
+            background: #f0f4fa;
+            padding: 1px 10px;
+            border-radius: 30px;
+            color: #4a657f;
+        }
+        .library-item .click-hint {
+            font-size: 11px;
+            color: #7b93b0;
+            background: #f0f5fc;
+            padding: 2px 10px;
+            border-radius: 30px;
+        }
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #9bafc9;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 6px;
+            line-height: 1;
+        }
+        .remove-btn:hover {
+            color: #c74a4a;
+        }
+
+        .add-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 14px 0 8px;
+        }
+        .add-section input, .add-section select {
+            border: 1px solid #d2dfef;
+            border-radius: 40px;
+            padding: 8px 14px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+            flex: 1;
+            min-width: 80px;
+        }
+        .add-section select {
+            flex: 0.6;
+            min-width: 70px;
+        }
+        .add-section button {
+            background: #1e2b3c;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.1s;
+            white-space: nowrap;
+        }
+        .add-section button:hover {
+            background: #2f4057;
+        }
+        .library-hint {
+            font-size: 12px;
+            color: #5f7d9c;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 700px) {
+            .app { padding: 16px; }
+            .tab-btn { padding: 8px 16px; font-size: 13px; }
+            .grid-control input { width: 44px; }
+            .layout-save-area { flex-direction: column; align-items: stretch; }
+            .layout-save-area input, .layout-save-area select { min-width: unset; }
+        }
+    </style>
+</head>
+<body>
+<div class="app" id="app">
+    <div style="display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center;">
+        <h1>🦷 车针管理</h1>
+        <span class="status-msg" id="statusMsg">✨ 拖拽车针可调整顺序 · 点击空位放入</span>
+    </div>
+    <div class="sub">高速车针(蓝/绿/黄/红/黑标) · 低速车针(无标) · 支持拖拽排序与布局保存</div>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="box">🧰 车针盒</button>
+        <button class="tab-btn" data-tab="library">📚 车针库</button>
+    </div>
+
+    <!-- 车针盒 -->
+    <div class="tab-panel active" id="panel-box">
+        <div class="box-header">
+            <h3>车针盒 <span class="badge" id="holeCountDisplay">0 孔</span></h3>
+            <span style="font-size:13px; color:#3f5e7e;">拖拽车针调整顺序 · 点击 ✕ 移除</span>
+        </div>
+        <div class="grid-box" id="boxContainer"></div>
+
+        <div class="grid-control">
+            <label>行数：</label>
+            <input type="number" id="rowInput" min="1" max="12" value="3">
+            <label>列数：</label>
+            <input type="number" id="colInput" min="1" max="12" value="4">
+            <button id="applyGridBtn">更新布局</button>
+            <button id="resetBoxBtn" style="margin-left: auto;">🗑️ 清空</button>
+        </div>
+
+        <div class="layout-save-area">
+            <label>📂 布局方案：</label>
+            <select id="layoutSelect">
+                <option value="">-- 选择已保存布局 --</option>
+            </select>
+            <button id="loadLayoutBtn" class="secondary">加载</button>
+            <button id="deleteLayoutBtn" class="danger">删除</button>
+            <span style="color:#8aa3c0; font-size:13px;">|</span>
+            <input type="text" id="layoutNameInput" placeholder="布局名称" />
+            <button id="saveLayoutBtn">💾 保存当前布局</button>
+        </div>
+
+        <div class="helper-text">⚡ 拖拽车针可调整顺序 · 从车针库选中后点击空位放入 · 点击 ✕ 移除</div>
+    </div>
+
+    <!-- 车针库 -->
+    <div class="tab-panel" id="panel-library">
+        <div class="library-header">
+            <h3>车针库</h3>
+            <div class="library-toolbar">
+                <span style="font-size:13px; color:#46658a;" id="libraryCount">0</span>
+                <button id="clearSelectionBtn" style="background:#f0f4fc;">取消选中</button>
+                <button id="putSelectedBtn" class="primary">📥 放入车针盒</button>
+            </div>
+        </div>
+
+        <div class="filter-bar">
+            <input type="text" id="filterInput" placeholder="🔍 筛选车针名称... (如 FG)" />
+            <select id="filterVendor">
+                <option value="">全部厂商</option>
+            </select>
+            <button class="filter-clear" id="clearFilterBtn">清除筛选</button>
+        </div>
+
+        <div class="library-list" id="libraryList"></div>
+
+        <div class="add-section">
+            <input type="text" id="newBurInput" placeholder="车针名 e.g. FG-101" />
+            <input type="text" id="newVendorInput" placeholder="厂商 e.g. 马尼" />
+            <select id="speedSelect">
+                <option value="高速">高速</option>
+                <option value="低速">低速</option>
+            </select>
+            <select id="colorSelect">
+                <option value="#1E88E5">蓝标</option>
+                <option value="#43A047">绿标</option>
+                <option value="#FDD835">黄标</option>
+                <option value="#E53935">红标</option>
+                <option value="#212121">黑标</option>
+                <option value="" selected>无标 (低速)</option>
+            </select>
+            <button id="addBurBtn">添加</button>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+            <button id="addDefaultBursBtn" style="background: #eaf1fc; border:1px solid #b9cee9; border-radius: 40px; padding: 4px 16px; font-size:13px; cursor:pointer;">➕ 快速示例</button>
+        </div>
+        <div class="library-hint">🔵🟢🟡🔴⚫ 高速 · 无标 低速 &nbsp;|&nbsp; 点击车针选中，再到「车针盒」点击空位放入</div>
+    </div>
+</div>
+<script>
+    (function(){
+        // ---------- 车针数据 ----------
+        let burLibrary = [
+            { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼' },
+            { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼' },
+            { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏' },
+            { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏' },
+            { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田' },
+            { name: 'LA-001', color: '', speed: '低速', vendor: '马尼' },
+            { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏' },
+        ];
+
+        // ---------- 布局存储 ----------
+        let savedLayouts = {};
+        const STORAGE_KEY = 'burLayouts';
+        let currentLayoutName = '';
+
+        // 筛选状态
+        let filterText = '';
+        let filterVendor = '';
+
+        let gridRows = 3;
+        let gridCols = 4;
+        let boxSlots = [];
+
+        let selectedBur = null;
+        let selectedIndex = -1;
+
+        // 拖拽状态
+        let dragIndex = null;
+        let dragOverIndex = null;
+
+        // DOM
+        const boxContainer = document.getElementById('boxContainer');
+        const libraryList = document.getElementById('libraryList');
+        const rowInput = document.getElementById('rowInput');
+        const colInput = document.getElementById('colInput');
+        const applyGridBtn = document.getElementById('applyGridBtn');
+        const resetBoxBtn = document.getElementById('resetBoxBtn');
+        const addBurBtn = document.getElementById('addBurBtn');
+        const newBurInput = document.getElementById('newBurInput');
+        const newVendorInput = document.getElementById('newVendorInput');
+        const colorSelect = document.getElementById('colorSelect');
+        const speedSelect = document.getElementById('speedSelect');
+        const addDefaultBursBtn = document.getElementById('addDefaultBursBtn');
+        const holeCountDisplay = document.getElementById('holeCountDisplay');
+        const libraryCount = document.getElementById('libraryCount');
+        const statusMsg = document.getElementById('statusMsg');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+        const putSelectedBtn = document.getElementById('putSelectedBtn');
+        const filterInput = document.getElementById('filterInput');
+        const filterVendorSelect = document.getElementById('filterVendor');
+        const clearFilterBtn = document.getElementById('clearFilterBtn');
+
+        const layoutSelect = document.getElementById('layoutSelect');
+        const layoutNameInput = document.getElementById('layoutNameInput');
+        const saveLayoutBtn = document.getElementById('saveLayoutBtn');
+        const loadLayoutBtn = document.getElementById('loadLayoutBtn');
+        const deleteLayoutBtn = document.getElementById('deleteLayoutBtn');
+
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const panels = {
+            box: document.getElementById('panel-box'),
+            library: document.getElementById('panel-library')
+        };
+
+        // ---------- 布局存储 ----------
+        function loadLayoutsFromStorage() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                if (data) {
+                    savedLayouts = JSON.parse(data);
+                } else {
+                    savedLayouts = {};
+                }
+            } catch (e) {
+                savedLayouts = {};
+            }
+            if (typeof savedLayouts !== 'object' || Array.isArray(savedLayouts)) {
+                savedLayouts = {};
+            }
+        }
+
+        function saveLayoutsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedLayouts));
+            } catch (e) {}
+        }
+
+        function saveCurrentLayout(name) {
+            const trimmed = name.trim();
+            if (!trimmed) {
+                setStatus('请输入布局名称', true);
+                return false;
+            }
+            const slotsCopy = boxSlots.map(s => s ? { ...s } : null);
+            savedLayouts[trimmed] = {
+                rows: gridRows,
+                cols: gridCols,
+                slots: slotsCopy
+            };
+            saveLayoutsToStorage();
+            updateLayoutSelect();
+            layoutSelect.value = trimmed;
+            currentLayoutName = trimmed;
+            setStatus(`布局 "${trimmed}" 已保存 (${gridRows}×${gridCols})`);
+            return true;
+        }
+
+        function loadLayout(name) {
+            const layout = savedLayouts[name];
+            if (!layout) {
+                setStatus(`布局 "${name}" 不存在`, true);
+                return false;
+            }
+            gridRows = layout.rows || 3;
+            gridCols = layout.cols || 4;
+            const newSlots = layout.slots ? layout.slots.map(s => s ? { ...s } : null) : [];
+            const total = gridRows * gridCols;
+            while (newSlots.length < total) newSlots.push(null);
+            if (newSlots.length > total) newSlots.length = total;
+            boxSlots = newSlots;
+            rowInput.value = gridRows;
+            colInput.value = gridCols;
+            currentLayoutName = name;
+            layoutSelect.value = name;
+            renderAll();
+            setStatus(`已加载布局 "${name}" (${gridRows}×${gridCols})`);
+            return true;
+        }
+
+        function deleteLayout(name) {
+            if (!name) { setStatus('请选择要删除的布局', true); return; }
+            if (!savedLayouts[name]) { setStatus(`布局 "${name}" 不存在`, true); return; }
+            delete savedLayouts[name];
+            saveLayoutsToStorage();
+            if (currentLayoutName === name) currentLayoutName = '';
+            updateLayoutSelect();
+            setStatus(`已删除布局 "${name}"`);
+        }
+
+        function updateLayoutSelect() {
+            const names = Object.keys(savedLayouts).sort();
+            const currentVal = layoutSelect.value;
+            layoutSelect.innerHTML = '<option value="">-- 选择已保存布局 --</option>';
+            names.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n;
+                const layout = savedLayouts[n];
+                opt.textContent = `${n} (${layout.rows}×${layout.cols})`;
+                layoutSelect.appendChild(opt);
+            });
+            if (currentVal && names.includes(currentVal)) {
+                layoutSelect.value = currentVal;
+            } else if (currentLayoutName && names.includes(currentLayoutName)) {
+                layoutSelect.value = currentLayoutName;
+            }
+        }
+
+        // ---------- 子卡切换 ----------
+        function switchTab(tabId) {
+            tabBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabId);
+            });
+            Object.keys(panels).forEach(key => {
+                panels[key].classList.toggle('active', key === tabId);
+            });
+        }
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // ---------- 工具 ----------
+        function getAllVendors() {
+            const vendors = new Set();
+            burLibrary.forEach(b => { if (b.vendor) vendors.add(b.vendor); });
+            return Array.from(vendors).sort();
+        }
+
+        function updateVendorFilterOptions() {
+            const vendors = getAllVendors();
+            const currentVal = filterVendorSelect.value;
+            filterVendorSelect.innerHTML = '<option value="">全部厂商</option>';
+            vendors.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v;
+                filterVendorSelect.appendChild(opt);
+            });
+            if (currentVal && vendors.includes(currentVal)) {
+                filterVendorSelect.value = currentVal;
+            }
+        }
+
+        function getFilteredLibrary() {
+            return burLibrary.filter(bur => {
+                const matchName = bur.name.toLowerCase().includes(filterText.toLowerCase());
+                const matchVendor = filterVendor === '' || bur.vendor === filterVendor;
+                return matchName && matchVendor;
+            });
+        }
+
+        // ---------- 渲染 ----------
+        function renderAll() {
+            renderBox();
+            renderLibrary();
+            updateCounters();
+            updateVendorFilterOptions();
+            updateLayoutSelect();
+        }
+
+        function renderBox() {
+            const total = boxSlots.length;
+            const cols = Math.min(gridCols, Math.max(1, gridCols));
+            boxContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            let html = '';
+            for (let i = 0; i < total; i++) {
+                const bur = boxSlots[i];
+                const filled = bur !== null && bur.name && bur.name.trim() !== '';
+                const classes = `well ${filled ? 'filled draggable' : 'empty'}`;
+                let content = '';
+                if (filled) {
+                    const color = bur.color || '';
+                    const speed = bur.speed || '高速';
+                    const speedLabel = speed === '高速' ? '⚡高' : '🐢低';
+                    const dotHtml = color ? `<div class="color-dot" style="background:${color};"></div>` : '';
+                    content = `
+                        ${dotHtml}
+                        <div class="bur-name">${bur.name}</div>
+                        <div class="speed-tag" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</div>
+                        <span class="remove-icon" data-index="${i}" data-action="removeFromBox">✕</span>
+                    `;
+                } else {
+                    content = `<span style="opacity:0.25; font-size:18px;">○</span>`;
+                }
+                html += `<div class="${classes}" data-index="${i}" data-type="box" draggable="${filled ? 'true' : 'false'}">${content}</div>`;
+            }
+            boxContainer.innerHTML = html;
+            holeCountDisplay.textContent = `${total} 孔`;
+
+            // 空位点击放入选中车针
+            boxContainer.querySelectorAll('.well.empty').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    const index = parseInt(el.dataset.index, 10);
+                    if (isNaN(index)) return;
+                    if (!selectedBur) {
+                        setStatus('请先在车针库中点击选中一个车针', true);
+                        return;
+                    }
+                    if (boxSlots[index] !== null) {
+                        setStatus(`孔 ${index+1} 已有车针`, true);
+                        return;
+                    }
+                    placeBurInSlot(selectedBur, index);
+                });
+            });
+
+            // 移除按钮
+            boxContainer.querySelectorAll('[data-action="removeFromBox"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const index = parseInt(btn.dataset.index, 10);
+                    if (!isNaN(index)) {
+                        removeBurFromSlot(index);
+                    }
+                });
+            });
+
+            // ---------- 拖拽事件 ----------
+            const wells = boxContainer.querySelectorAll('.well.draggable');
+            wells.forEach(el => {
+                el.addEventListener('dragstart', (e) => {
+                    const idx = parseInt(el.dataset.index, 10);
+                    if (isNaN(idx) || boxSlots[idx] === null) {
+                        e.preventDefault();
+                        return;
+                    }
+                    dragIndex = idx;
+                    el.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(idx));
+                });
+
+                el.addEventListener('dragend', (e) => {
+                    el.classList.remove('dragging');
+                    document.querySelectorAll('.well.drag-over').forEach(w => w.classList.remove('drag-over'));
+                    dragIndex = null;
+                    dragOverIndex = null;
+                });
+            });
+
+            // 所有well都作为放置目标
+            boxContainer.querySelectorAll('.well').forEach(el => {
+                el.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const targetIdx = parseInt(el.dataset.index, 10);
+                    if (!isNaN(targetIdx) && targetIdx !== dragIndex) {
+                        el.classList.add('drag-over');
+                        dragOverIndex = targetIdx;
+                    }
+                });
+
+                el.addEventListener('dragleave', (e) => {
+                    el.classList.remove('drag-over');
+                    if (dragOverIndex === parseInt(el.dataset.index, 10)) {
+                        dragOverIndex = null;
+                    }
+                });
+
+                el.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    el.classList.remove('drag-over');
+                    const targetIdx = parseInt(el.dataset.index, 10);
+                    if (isNaN(targetIdx)) return;
+
+                    const srcIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                    if (isNaN(srcIdx) || srcIdx === targetIdx) return;
+                    if (srcIdx < 0 || srcIdx >= boxSlots.length || targetIdx < 0 || targetIdx >= boxSlots.length) return;
+                    if (boxSlots[srcIdx] === null) return;
+
+                    // 执行交换
+                    const temp = boxSlots[srcIdx];
+                    boxSlots[srcIdx] = boxSlots[targetIdx];
+                    boxSlots[targetIdx] = temp;
+                    currentLayoutName = '';
+                    layoutSelect.value = '';
+                    renderAll();
+                    setStatus(`已移动车针到孔 ${targetIdx+1}`);
+                    dragIndex = null;
+                    dragOverIndex = null;
+                });
+            });
+        }
+
+        function renderLibrary() {
+            const filtered = getFilteredLibrary();
+            if (filtered.length === 0) {
+                libraryList.innerHTML = `<div style="padding: 16px; color: #7b8fa8; text-align:center; font-size:14px;">没有匹配的车针<br>尝试调整筛选条件</div>`;
+                return;
+            }
+            let html = '';
+            filtered.forEach((bur, idx) => {
+                const color = bur.color || '';
+                const speed = bur.speed || '高速';
+                const speedLabel = speed === '高速' ? '⚡高速' : '🐢低速';
+                const dotHtml = color ? `<div class="color-dot" style="background:${color};"></div>` : `<div class="color-dot" style="background:transparent; border:1px dashed #ccc;"></div>`;
+                const isSelected = (selectedBur === bur);
+                const vendorDisplay = bur.vendor ? `<span class="vendor-tag">🏷️ ${bur.vendor}</span>` : '';
+                html += `
+                    <div class="library-item ${isSelected ? 'selected' : ''}" data-bur-idx="${burLibrary.indexOf(bur)}" data-type="library">
+                        ${dotHtml}
+                        <div class="item-info">
+                            <span class="item-name">${bur.name}</span>
+                            <span class="item-meta">
+                                <span class="speed-badge" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</span>
+                                ${vendorDisplay}
+                                ${color ? '· 标' : '· 无标'}
+                            </span>
+                        </div>
+                        <span class="click-hint">${isSelected ? '✓ 已选' : '点击选中'}</span>
+                        <button class="remove-btn" data-bur-idx="${burLibrary.indexOf(bur)}" data-action="removeBur">✕</button>
+                    </div>
+                `;
+            });
+            libraryList.innerHTML = html;
+
+            libraryList.querySelectorAll('.library-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    if (e.target.closest('.remove-btn')) return;
+                    const idx = parseInt(item.dataset.burIdx, 10);
+                    if (!isNaN(idx) && idx >= 0 && idx < burLibrary.length) {
+                        selectBur(idx);
+                    }
+                });
+            });
+
+            libraryList.querySelectorAll('[data-action="removeBur"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(btn.dataset.burIdx, 10);
+                    if (!isNaN(idx) && idx >= 0 && idx < burLibrary.length) {
+                        if (selectedBur === burLibrary[idx]) {
+                            selectedBur = null;
+                            selectedIndex = -1;
+                        }
+                        burLibrary.splice(idx, 1);
+                        renderAll();
+                        setStatus('已移除车针');
+                    }
+                });
+            });
+        }
+
+        function updateCounters() {
+            libraryCount.textContent = burLibrary.length;
+        }
+
+        function setStatus(msg, isError = false) {
+            statusMsg.textContent = msg;
+            statusMsg.style.background = isError ? '#ffe8e8' : '#e2ebf6';
+            setTimeout(() => {
+                statusMsg.style.background = '#e2ebf6';
+            }, 2000);
+        }
+
+        // ---------- 选中 ----------
+        function selectBur(index) {
+            if (index >= 0 && index < burLibrary.length) {
+                selectedBur = burLibrary[index];
+                selectedIndex = index;
+                renderLibrary();
+                setStatus(`已选中: ${selectedBur.name}（${selectedBur.vendor || '未知厂商'}），请到车针盒点击空位放入`);
+            }
+        }
+
+        function clearSelection() {
+            selectedBur = null;
+            selectedIndex = -1;
+            renderLibrary();
+            setStatus('已取消选中');
+        }
+
+        // ---------- 核心操作 ----------
+        function rebuildGrid(newRows, newCols) {
+            let rows = Math.min(Math.max(1, newRows), 12);
+            let cols = Math.min(Math.max(1, newCols), 12);
+            const newTotal = rows * cols;
+            const oldSlots = boxSlots.slice();
+            const newSlots = new Array(newTotal).fill(null);
+            for (let i = 0; i < Math.min(oldSlots.length, newTotal); i++) {
+                newSlots[i] = oldSlots[i];
+            }
+            boxSlots = newSlots;
+            gridRows = rows;
+            gridCols = cols;
+            currentLayoutName = '';
+            layoutSelect.value = '';
+            renderAll();
+            setStatus(`布局更新为 ${rows} 行 × ${cols} 列 = ${newTotal} 孔`);
+        }
+
+        function clearBox() {
+            boxSlots.fill(null);
+            currentLayoutName = '';
+            layoutSelect.value = '';
+            renderAll();
+            setStatus('盒子已清空');
+        }
+
+        function addBurToLibrary(name, vendor, color, speed) {
+            const trimmed = name.trim();
+            if (trimmed === '') {
+                setStatus('请输入车针名称', true);
+                return false;
+            }
+            if (burLibrary.some(b => b.name === trimmed && b.vendor === vendor)) {
+                setStatus(`车针 "${trimmed}（${vendor}）" 已存在`, true);
+                return false;
+            }
+            const finalColor = (speed === '低速') ? '' : (color || '');
+            burLibrary.push({ name: trimmed, vendor: vendor || '', color: finalColor, speed: speed || '高速' });
+            renderAll();
+            setStatus(`添加车针: ${trimmed} (${vendor || '无厂商'})`);
+            return true;
+        }
+
+        function removeBurFromSlot(index) {
+            if (index < 0 || index >= boxSlots.length) return false;
+            if (boxSlots[index] === null) return false;
+            boxSlots[index] = null;
+            renderAll();
+            setStatus('已移除孔内车针');
+            return true;
+        }
+
+        function placeBurInSlot(bur, slotIndex) {
+            if (slotIndex < 0 || slotIndex >= boxSlots.length) {
+                setStatus('孔位无效', true);
+                return false;
+            }
+            if (!bur || !bur.name) return false;
+            if (boxSlots[slotIndex] !== null) {
+                setStatus(`孔 ${slotIndex+1} 已有车针`, true);
+                return false;
+            }
+            boxSlots[slotIndex] = { ...bur };
+            renderAll();
+            setStatus(`放入 ${bur.name} 到孔 ${slotIndex+1}`);
+            return true;
+        }
+
+        function putSelectedIntoBox() {
+            if (!selectedBur) {
+                setStatus('请先在车针库中点击选中一个车针', true);
+                return;
+            }
+            const emptyIndex = boxSlots.findIndex(slot => slot === null);
+            if (emptyIndex === -1) {
+                setStatus('车针盒已满，没有空位', true);
+                return;
+            }
+            placeBurInSlot(selectedBur, emptyIndex);
+        }
+
+        function applyFilter() {
+            filterText = filterInput.value.trim();
+            filterVendor = filterVendorSelect.value;
+            renderLibrary();
+        }
+
+        function clearFilter() {
+            filterInput.value = '';
+            filterVendorSelect.value = '';
+            filterText = '';
+            filterVendor = '';
+            renderLibrary();
+        }
+
+        // ---------- 初始化 ----------
+        function init() {
+            loadLayoutsFromStorage();
+
+            if (burLibrary.length === 0) {
+                burLibrary = [
+                    { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼' },
+                    { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼' },
+                    { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏' },
+                    { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏' },
+                    { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田' },
+                    { name: 'LA-001', color: '', speed: '低速', vendor: '马尼' },
+                    { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏' },
+                ];
+            }
+
+            gridRows = 3;
+            gridCols = 4;
+            const total = gridRows * gridCols;
+            boxSlots = new Array(total).fill(null);
+            if (burLibrary.length >= 4) {
+                boxSlots[0] = { ...burLibrary[0] };
+                boxSlots[3] = { ...burLibrary[1] };
+                boxSlots[6] = { ...burLibrary[4] };
+                boxSlots[9] = { ...burLibrary[5] };
+            }
+
+            rowInput.value = gridRows;
+            colInput.value = gridCols;
+
+            renderAll();
+
+            applyGridBtn.addEventListener('click', () => {
+                let rows = parseInt(rowInput.value, 10);
+                let cols = parseInt(colInput.value, 10);
+                if (isNaN(rows) || rows < 1) rows = 1;
+                if (isNaN(cols) || cols < 1) cols = 1;
+                rowInput.value = rows;
+                colInput.value = cols;
+                rebuildGrid(rows, cols);
+            });
+
+            resetBoxBtn.addEventListener('click', clearBox);
+
+            addBurBtn.addEventListener('click', () => {
+                const name = newBurInput.value.trim();
+                const vendor = newVendorInput.value.trim();
+                const color = colorSelect.value || '';
+                const speed = speedSelect.value || '高速';
+                if (addBurToLibrary(name, vendor, color, speed)) {
+                    newBurInput.value = '';
+                    newVendorInput.value = '';
+                }
+            });
+            newBurInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addBurBtn.click();
+            });
+            newVendorInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addBurBtn.click();
+            });
+
+            addDefaultBursBtn.addEventListener('click', () => {
+                const defaults = [
+                    { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼' },
+                    { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼' },
+                    { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏' },
+                    { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏' },
+                    { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田' },
+                    { name: 'LA-001', color: '', speed: '低速', vendor: '马尼' },
+                    { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏' },
+                    { name: 'FG-110', color: '#43A047', speed: '高速', vendor: '马尼' },
+                    { name: 'LA-003', color: '', speed: '低速', vendor: '森田' },
+                    { name: 'FG-203', color: '#FDD835', speed: '高速', vendor: '登士柏' },
+                ];
+                let added = 0;
+                defaults.forEach(d => {
+                    if (!burLibrary.some(b => b.name === d.name && b.vendor === d.vendor)) {
+                        burLibrary.push({ ...d });
+                        added++;
+                    }
+                });
+                if (added > 0) {
+                    renderAll();
+                    setStatus(`添加了 ${added} 个示例车针`);
+                } else {
+                    setStatus('示例车针已存在');
+                }
+            });
+
+            clearSelectionBtn.addEventListener('click', clearSelection);
+            putSelectedBtn.addEventListener('click', putSelectedIntoBox);
+
+            filterInput.addEventListener('input', applyFilter);
+            filterVendorSelect.addEventListener('change', applyFilter);
+            clearFilterBtn.addEventListener('click', clearFilter);
+
+            saveLayoutBtn.addEventListener('click', () => {
+                const name = layoutNameInput.value.trim();
+                if (saveCurrentLayout(name)) {
+                    layoutNameInput.value = '';
+                }
+            });
+
+            loadLayoutBtn.addEventListener('click', () => {
+                const name = layoutSelect.value;
+                if (name) {
+                    loadLayout(name);
+                } else {
+                    setStatus('请选择要加载的布局', true);
+                }
+            });
+
+            deleteLayoutBtn.addEventListener('click', () => {
+                const name = layoutSelect.value;
+                deleteLayout(name);
+            });
+
+            layoutNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    saveLayoutBtn.click();
+                }
+            });
+
+            const layoutNames = Object.keys(savedLayouts);
+            if (layoutNames.length > 0 && boxSlots.every(s => s === null)) {
+                loadLayout(layoutNames[0]);
+            }
+        }
+
+        init();
+    })();
+</script>
+</body>
+</html>
