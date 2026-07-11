@@ -151,7 +151,6 @@
             min-height: 0;
             overflow: hidden;
         }
-        /* 拖拽相关 */
         .well.draggable {
             cursor: grab;
         }
@@ -193,6 +192,14 @@
             border-radius: 50%;
             border: 1px solid rgba(0,0,0,0.08);
             flex-shrink: 0;
+        }
+        .well .material-tag {
+            font-size: 7px;
+            background: rgba(0,0,0,0.04);
+            padding: 0 6px;
+            border-radius: 20px;
+            color: #4a657f;
+            letter-spacing: 0.2px;
         }
         .well.filled {
             border-color: #b3cce6;
@@ -501,6 +508,14 @@
             font-weight: 600;
             color: #1f3b5a;
         }
+        .library-item .material-badge {
+            font-size: 10px;
+            background: #eef3f9;
+            padding: 1px 10px;
+            border-radius: 30px;
+            font-weight: 500;
+            color: #4a657f;
+        }
         .library-item .vendor-tag {
             font-size: 10px;
             background: #f0f4fa;
@@ -583,7 +598,7 @@
         <h1>🦷 车针管理</h1>
         <span class="status-msg" id="statusMsg">✨ 拖拽车针可调整顺序 · 点击空位放入</span>
     </div>
-    <div class="sub">高速车针(蓝/绿/黄/红/黑标) · 低速车针(无标) · 支持拖拽排序与布局保存</div>
+    <div class="sub">高速车针(蓝/绿/黄/红/黑/其他) · 低速车针 · 材质(钨钢/金刚砂)筛选</div>
 
     <div class="tab-bar">
         <button class="tab-btn active" data-tab="box">🧰 车针盒</button>
@@ -638,6 +653,11 @@
             <select id="filterVendor">
                 <option value="">全部厂商</option>
             </select>
+            <select id="filterMaterial">
+                <option value="">全部材质</option>
+                <option value="钨钢">钨钢</option>
+                <option value="金刚砂">金刚砂</option>
+            </select>
             <button class="filter-clear" id="clearFilterBtn">清除筛选</button>
         </div>
 
@@ -650,12 +670,17 @@
                 <option value="高速">高速</option>
                 <option value="低速">低速</option>
             </select>
+            <select id="materialSelect">
+                <option value="钨钢">钨钢</option>
+                <option value="金刚砂">金刚砂</option>
+            </select>
             <select id="colorSelect">
                 <option value="#1E88E5">蓝标</option>
                 <option value="#43A047">绿标</option>
                 <option value="#FDD835">黄标</option>
                 <option value="#E53935">红标</option>
                 <option value="#212121">黑标</option>
+                <option value="#9E9E9E">其他</option>
                 <option value="" selected>无标 (低速)</option>
             </select>
             <button id="addBurBtn">添加</button>
@@ -663,20 +688,21 @@
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
             <button id="addDefaultBursBtn" style="background: #eaf1fc; border:1px solid #b9cee9; border-radius: 40px; padding: 4px 16px; font-size:13px; cursor:pointer;">➕ 快速示例</button>
         </div>
-        <div class="library-hint">🔵🟢🟡🔴⚫ 高速 · 无标 低速 &nbsp;|&nbsp; 点击车针选中，再到「车针盒」点击空位放入</div>
+        <div class="library-hint">🔵🟢🟡🔴⚫ 高速 · 其他 高速 &nbsp;|&nbsp; 点击车针选中，再到「车针盒」点击空位放入</div>
     </div>
 </div>
 <script>
     (function(){
         // ---------- 车针数据 ----------
         let burLibrary = [
-            { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼' },
-            { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼' },
-            { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏' },
-            { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏' },
-            { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田' },
-            { name: 'LA-001', color: '', speed: '低速', vendor: '马尼' },
-            { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏' },
+            { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼', material: '钨钢' },
+            { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼', material: '金刚砂' },
+            { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏', material: '钨钢' },
+            { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏', material: '金刚砂' },
+            { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田', material: '钨钢' },
+            { name: 'TC-302', color: '#9E9E9E', speed: '高速', vendor: '森田', material: '金刚砂' },
+            { name: 'LA-001', color: '', speed: '低速', vendor: '马尼', material: '钨钢' },
+            { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏', material: '金刚砂' },
         ];
 
         // ---------- 布局存储 ----------
@@ -684,9 +710,9 @@
         const STORAGE_KEY = 'burLayouts';
         let currentLayoutName = '';
 
-        // 筛选状态
         let filterText = '';
         let filterVendor = '';
+        let filterMaterial = '';
 
         let gridRows = 3;
         let gridCols = 4;
@@ -695,7 +721,6 @@
         let selectedBur = null;
         let selectedIndex = -1;
 
-        // 拖拽状态
         let dragIndex = null;
         let dragOverIndex = null;
 
@@ -711,6 +736,7 @@
         const newVendorInput = document.getElementById('newVendorInput');
         const colorSelect = document.getElementById('colorSelect');
         const speedSelect = document.getElementById('speedSelect');
+        const materialSelect = document.getElementById('materialSelect');
         const addDefaultBursBtn = document.getElementById('addDefaultBursBtn');
         const holeCountDisplay = document.getElementById('holeCountDisplay');
         const libraryCount = document.getElementById('libraryCount');
@@ -719,6 +745,7 @@
         const putSelectedBtn = document.getElementById('putSelectedBtn');
         const filterInput = document.getElementById('filterInput');
         const filterVendorSelect = document.getElementById('filterVendor');
+        const filterMaterialSelect = document.getElementById('filterMaterial');
         const clearFilterBtn = document.getElementById('clearFilterBtn');
 
         const layoutSelect = document.getElementById('layoutSelect');
@@ -865,8 +892,22 @@
             return burLibrary.filter(bur => {
                 const matchName = bur.name.toLowerCase().includes(filterText.toLowerCase());
                 const matchVendor = filterVendor === '' || bur.vendor === filterVendor;
-                return matchName && matchVendor;
+                const matchMaterial = filterMaterial === '' || bur.material === filterMaterial;
+                return matchName && matchVendor && matchMaterial;
             });
+        }
+
+        // ---------- 颜色名称映射 ----------
+        function getColorName(color) {
+            const map = {
+                '#1E88E5': '蓝标',
+                '#43A047': '绿标',
+                '#FDD835': '黄标',
+                '#E53935': '红标',
+                '#212121': '黑标',
+                '#9E9E9E': '其他'
+            };
+            return map[color] || '';
         }
 
         // ---------- 渲染 ----------
@@ -892,11 +933,16 @@
                     const color = bur.color || '';
                     const speed = bur.speed || '高速';
                     const speedLabel = speed === '高速' ? '⚡高' : '🐢低';
+                    const material = bur.material || '';
+                    const materialDisplay = material ? `<span class="material-tag">${material}</span>` : '';
                     const dotHtml = color ? `<div class="color-dot" style="background:${color};"></div>` : '';
                     content = `
                         ${dotHtml}
                         <div class="bur-name">${bur.name}</div>
-                        <div class="speed-tag" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</div>
+                        <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">
+                            <span class="speed-tag" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</span>
+                            ${materialDisplay}
+                        </div>
                         <span class="remove-icon" data-index="${i}" data-action="removeFromBox">✕</span>
                     `;
                 } else {
@@ -907,7 +953,6 @@
             boxContainer.innerHTML = html;
             holeCountDisplay.textContent = `${total} 孔`;
 
-            // 空位点击放入选中车针
             boxContainer.querySelectorAll('.well.empty').forEach(el => {
                 el.addEventListener('click', (e) => {
                     const index = parseInt(el.dataset.index, 10);
@@ -924,7 +969,6 @@
                 });
             });
 
-            // 移除按钮
             boxContainer.querySelectorAll('[data-action="removeFromBox"]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -935,7 +979,6 @@
                 });
             });
 
-            // ---------- 拖拽事件 ----------
             const wells = boxContainer.querySelectorAll('.well.draggable');
             wells.forEach(el => {
                 el.addEventListener('dragstart', (e) => {
@@ -958,7 +1001,6 @@
                 });
             });
 
-            // 所有well都作为放置目标
             boxContainer.querySelectorAll('.well').forEach(el => {
                 el.addEventListener('dragover', (e) => {
                     e.preventDefault();
@@ -988,7 +1030,6 @@
                     if (srcIdx < 0 || srcIdx >= boxSlots.length || targetIdx < 0 || targetIdx >= boxSlots.length) return;
                     if (boxSlots[srcIdx] === null) return;
 
-                    // 执行交换
                     const temp = boxSlots[srcIdx];
                     boxSlots[srcIdx] = boxSlots[targetIdx];
                     boxSlots[targetIdx] = temp;
@@ -1013,9 +1054,12 @@
                 const color = bur.color || '';
                 const speed = bur.speed || '高速';
                 const speedLabel = speed === '高速' ? '⚡高速' : '🐢低速';
+                const material = bur.material || '';
+                const materialDisplay = material ? `<span class="material-badge">${material}</span>` : '';
                 const dotHtml = color ? `<div class="color-dot" style="background:${color};"></div>` : `<div class="color-dot" style="background:transparent; border:1px dashed #ccc;"></div>`;
                 const isSelected = (selectedBur === bur);
                 const vendorDisplay = bur.vendor ? `<span class="vendor-tag">🏷️ ${bur.vendor}</span>` : '';
+                const colorName = getColorName(color);
                 html += `
                     <div class="library-item ${isSelected ? 'selected' : ''}" data-bur-idx="${burLibrary.indexOf(bur)}" data-type="library">
                         ${dotHtml}
@@ -1023,8 +1067,9 @@
                             <span class="item-name">${bur.name}</span>
                             <span class="item-meta">
                                 <span class="speed-badge" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</span>
+                                ${materialDisplay}
                                 ${vendorDisplay}
-                                ${color ? '· 标' : '· 无标'}
+                                ${colorName ? '· ' + colorName : '· 无标'}
                             </span>
                         </div>
                         <span class="click-hint">${isSelected ? '✓ 已选' : '点击选中'}</span>
@@ -1079,7 +1124,7 @@
                 selectedBur = burLibrary[index];
                 selectedIndex = index;
                 renderLibrary();
-                setStatus(`已选中: ${selectedBur.name}（${selectedBur.vendor || '未知厂商'}），请到车针盒点击空位放入`);
+                setStatus(`已选中: ${selectedBur.name}（${selectedBur.material || '未知材质'}），请到车针盒点击空位放入`);
             }
         }
 
@@ -1117,7 +1162,7 @@
             setStatus('盒子已清空');
         }
 
-        function addBurToLibrary(name, vendor, color, speed) {
+        function addBurToLibrary(name, vendor, color, speed, material) {
             const trimmed = name.trim();
             if (trimmed === '') {
                 setStatus('请输入车针名称', true);
@@ -1128,9 +1173,15 @@
                 return false;
             }
             const finalColor = (speed === '低速') ? '' : (color || '');
-            burLibrary.push({ name: trimmed, vendor: vendor || '', color: finalColor, speed: speed || '高速' });
+            burLibrary.push({ 
+                name: trimmed, 
+                vendor: vendor || '', 
+                color: finalColor, 
+                speed: speed || '高速',
+                material: material || '钨钢'
+            });
             renderAll();
-            setStatus(`添加车针: ${trimmed} (${vendor || '无厂商'})`);
+            setStatus(`添加车针: ${trimmed} (${vendor || '无厂商'}) [${material}]`);
             return true;
         }
 
@@ -1175,14 +1226,17 @@
         function applyFilter() {
             filterText = filterInput.value.trim();
             filterVendor = filterVendorSelect.value;
+            filterMaterial = filterMaterialSelect.value;
             renderLibrary();
         }
 
         function clearFilter() {
             filterInput.value = '';
             filterVendorSelect.value = '';
+            filterMaterialSelect.value = '';
             filterText = '';
             filterVendor = '';
+            filterMaterial = '';
             renderLibrary();
         }
 
@@ -1192,13 +1246,14 @@
 
             if (burLibrary.length === 0) {
                 burLibrary = [
-                    { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼' },
-                    { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼' },
-                    { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏' },
-                    { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏' },
-                    { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田' },
-                    { name: 'LA-001', color: '', speed: '低速', vendor: '马尼' },
-                    { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏' },
+                    { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼', material: '钨钢' },
+                    { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼', material: '金刚砂' },
+                    { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏', material: '钨钢' },
+                    { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏', material: '金刚砂' },
+                    { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田', material: '钨钢' },
+                    { name: 'TC-302', color: '#9E9E9E', speed: '高速', vendor: '森田', material: '金刚砂' },
+                    { name: 'LA-001', color: '', speed: '低速', vendor: '马尼', material: '钨钢' },
+                    { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏', material: '金刚砂' },
                 ];
             }
 
@@ -1235,7 +1290,8 @@
                 const vendor = newVendorInput.value.trim();
                 const color = colorSelect.value || '';
                 const speed = speedSelect.value || '高速';
-                if (addBurToLibrary(name, vendor, color, speed)) {
+                const material = materialSelect.value || '钨钢';
+                if (addBurToLibrary(name, vendor, color, speed, material)) {
                     newBurInput.value = '';
                     newVendorInput.value = '';
                 }
@@ -1249,16 +1305,16 @@
 
             addDefaultBursBtn.addEventListener('click', () => {
                 const defaults = [
-                    { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼' },
-                    { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼' },
-                    { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏' },
-                    { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏' },
-                    { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田' },
-                    { name: 'LA-001', color: '', speed: '低速', vendor: '马尼' },
-                    { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏' },
-                    { name: 'FG-110', color: '#43A047', speed: '高速', vendor: '马尼' },
-                    { name: 'LA-003', color: '', speed: '低速', vendor: '森田' },
-                    { name: 'FG-203', color: '#FDD835', speed: '高速', vendor: '登士柏' },
+                    { name: 'FG-101', color: '#1E88E5', speed: '高速', vendor: '马尼', material: '钨钢' },
+                    { name: 'FG-102', color: '#43A047', speed: '高速', vendor: '马尼', material: '金刚砂' },
+                    { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏', material: '钨钢' },
+                    { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏', material: '金刚砂' },
+                    { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田', material: '钨钢' },
+                    { name: 'TC-302', color: '#9E9E9E', speed: '高速', vendor: '森田', material: '金刚砂' },
+                    { name: 'LA-001', color: '', speed: '低速', vendor: '马尼', material: '钨钢' },
+                    { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏', material: '金刚砂' },
+                    { name: 'FG-110', color: '#43A047', speed: '高速', vendor: '马尼', material: '钨钢' },
+                    { name: 'LA-003', color: '', speed: '低速', vendor: '森田', material: '金刚砂' },
                 ];
                 let added = 0;
                 defaults.forEach(d => {
@@ -1280,6 +1336,7 @@
 
             filterInput.addEventListener('input', applyFilter);
             filterVendorSelect.addEventListener('change', applyFilter);
+            filterMaterialSelect.addEventListener('change', applyFilter);
             clearFilterBtn.addEventListener('click', clearFilter);
 
             saveLayoutBtn.addEventListener('click', () => {
