@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>口腔车针管理 · 拖拽排序 · 布局保存</title>
+    <title>口腔车针管理 · 导入导出 · 品牌显示</title>
     <style>
         * {
             box-sizing: border-box;
@@ -176,6 +176,14 @@
             font-weight: 600;
             padding: 0 2px;
         }
+        .well .vendor-name {
+            font-size: 7px;
+            color: #5a7492;
+            background: rgba(0,0,0,0.04);
+            padding: 0 6px;
+            border-radius: 20px;
+            line-height: 1.3;
+        }
         .well .speed-tag {
             font-size: 8px;
             background: rgba(0,0,0,0.05);
@@ -347,6 +355,14 @@
         }
         .layout-save-area button.danger:hover {
             background: #f8d6d6;
+        }
+        .layout-save-area button.success {
+            background: #e6f4e6;
+            color: #2d7a2d;
+            border: 1px solid #b8d9b8;
+        }
+        .layout-save-area button.success:hover {
+            background: #d4ecd4;
         }
 
         .helper-text {
@@ -583,6 +599,11 @@
             margin-top: 8px;
         }
 
+        /* ===== 隐藏的文件输入 ===== */
+        #fileInput {
+            display: none;
+        }
+
         @media (max-width: 700px) {
             .app { padding: 16px; }
             .tab-btn { padding: 8px 16px; font-size: 13px; }
@@ -631,7 +652,10 @@
             <button id="deleteLayoutBtn" class="danger">删除</button>
             <span style="color:#8aa3c0; font-size:13px;">|</span>
             <input type="text" id="layoutNameInput" placeholder="布局名称" />
-            <button id="saveLayoutBtn">💾 保存当前布局</button>
+            <button id="saveLayoutBtn">💾 保存</button>
+            <button id="exportLayoutBtn" class="success">📤 导出</button>
+            <button id="importLayoutBtn" class="secondary">📥 导入</button>
+            <input type="file" id="fileInput" accept=".json" />
         </div>
 
         <div class="helper-text">⚡ 拖拽车针可调整顺序 · 从车针库选中后点击空位放入 · 点击 ✕ 移除</div>
@@ -681,7 +705,7 @@
                 <option value="#E53935">红标</option>
                 <option value="#212121">黑标</option>
                 <option value="#9E9E9E">其他</option>
-                <option value="" selected>无标 (低速)</option>
+                <option value="" selected>无标</option>
             </select>
             <button id="addBurBtn">添加</button>
         </div>
@@ -753,6 +777,9 @@
         const saveLayoutBtn = document.getElementById('saveLayoutBtn');
         const loadLayoutBtn = document.getElementById('loadLayoutBtn');
         const deleteLayoutBtn = document.getElementById('deleteLayoutBtn');
+        const exportLayoutBtn = document.getElementById('exportLayoutBtn');
+        const importLayoutBtn = document.getElementById('importLayoutBtn');
+        const fileInput = document.getElementById('fileInput');
 
         const tabBtns = document.querySelectorAll('.tab-btn');
         const panels = {
@@ -853,6 +880,63 @@
             }
         }
 
+        // ---------- 导出/导入 ----------
+        function exportLayouts() {
+            const data = {
+                version: '1.0',
+                exportedAt: new Date().toISOString(),
+                layouts: savedLayouts,
+                library: burLibrary
+            };
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bur_layouts_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            setStatus('布局数据已导出');
+        }
+
+        function importLayouts(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.layouts && typeof data.layouts === 'object') {
+                        // 合并导入的布局（覆盖同名）
+                        let count = 0;
+                        Object.keys(data.layouts).forEach(key => {
+                            if (data.layouts[key].rows !== undefined && data.layouts[key].cols !== undefined) {
+                                savedLayouts[key] = data.layouts[key];
+                                count++;
+                            }
+                        });
+                        // 如果包含车针库数据，也导入
+                        if (data.library && Array.isArray(data.library)) {
+                            data.library.forEach(bur => {
+                                if (bur.name && !burLibrary.some(b => b.name === bur.name && b.vendor === bur.vendor)) {
+                                    burLibrary.push({ ...bur });
+                                }
+                            });
+                        }
+                        saveLayoutsToStorage();
+                        updateLayoutSelect();
+                        renderAll();
+                        setStatus(`成功导入 ${count} 个布局`);
+                    } else {
+                        setStatus('无效的布局文件', true);
+                    }
+                } catch (err) {
+                    setStatus('文件解析失败: ' + err.message, true);
+                }
+            };
+            reader.readAsText(file);
+        }
+
         // ---------- 子卡切换 ----------
         function switchTab(tabId) {
             tabBtns.forEach(btn => {
@@ -935,10 +1019,12 @@
                     const speedLabel = speed === '高速' ? '⚡高' : '🐢低';
                     const material = bur.material || '';
                     const materialDisplay = material ? `<span class="material-tag">${material}</span>` : '';
+                    const vendorDisplay = bur.vendor ? `<span class="vendor-name">${bur.vendor}</span>` : '';
                     const dotHtml = color ? `<div class="color-dot" style="background:${color};"></div>` : '';
                     content = `
                         ${dotHtml}
                         <div class="bur-name">${bur.name}</div>
+                        ${vendorDisplay}
                         <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">
                             <span class="speed-tag" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</span>
                             ${materialDisplay}
@@ -1363,6 +1449,20 @@
             layoutNameInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     saveLayoutBtn.click();
+                }
+            });
+
+            // 导出
+            exportLayoutBtn.addEventListener('click', exportLayouts);
+
+            // 导入
+            importLayoutBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    importLayouts(e.target.files[0]);
+                    fileInput.value = '';
                 }
             });
 
