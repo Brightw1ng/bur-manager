@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>口腔车针管理 · 导入导出 · 品牌显示</title>
+    <title>口腔车针管理 · 拖拽排序 · 布局保存</title>
     <style>
         * {
             box-sizing: border-box;
@@ -599,7 +599,6 @@
             margin-top: 8px;
         }
 
-        /* ===== 隐藏的文件输入 ===== */
         #fileInput {
             display: none;
         }
@@ -619,7 +618,7 @@
         <h1>🦷 车针管理</h1>
         <span class="status-msg" id="statusMsg">✨ 拖拽车针可调整顺序 · 点击空位放入</span>
     </div>
-    <div class="sub">高速车针(蓝/绿/黄/红/黑/其他) · 低速车针 · 材质(钨钢/金刚砂)筛选</div>
+    <div class="sub">高速/低速/其他 · 材质(钨钢/金刚砂/其他) · 颜色(蓝/绿/黄/红/黑/无标/其他)</div>
 
     <div class="tab-bar">
         <button class="tab-btn active" data-tab="box">🧰 车针盒</button>
@@ -681,6 +680,13 @@
                 <option value="">全部材质</option>
                 <option value="钨钢">钨钢</option>
                 <option value="金刚砂">金刚砂</option>
+                <option value="其他">其他</option>
+            </select>
+            <select id="filterSpeed">
+                <option value="">全部速度</option>
+                <option value="高速">高速</option>
+                <option value="低速">低速</option>
+                <option value="其他">其他</option>
             </select>
             <button class="filter-clear" id="clearFilterBtn">清除筛选</button>
         </div>
@@ -693,10 +699,12 @@
             <select id="speedSelect">
                 <option value="高速">高速</option>
                 <option value="低速">低速</option>
+                <option value="其他">其他</option>
             </select>
             <select id="materialSelect">
                 <option value="钨钢">钨钢</option>
                 <option value="金刚砂">金刚砂</option>
+                <option value="其他">其他</option>
             </select>
             <select id="colorSelect">
                 <option value="#1E88E5">蓝标</option>
@@ -704,15 +712,15 @@
                 <option value="#FDD835">黄标</option>
                 <option value="#E53935">红标</option>
                 <option value="#212121">黑标</option>
-                <option value="#9E9E9E">其他</option>
                 <option value="" selected>无标</option>
+                <option value="#9E9E9E">其他</option>
             </select>
             <button id="addBurBtn">添加</button>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
             <button id="addDefaultBursBtn" style="background: #eaf1fc; border:1px solid #b9cee9; border-radius: 40px; padding: 4px 16px; font-size:13px; cursor:pointer;">➕ 快速示例</button>
         </div>
-        <div class="library-hint">🔵🟢🟡🔴⚫ 高速 · 其他 高速 &nbsp;|&nbsp; 点击车针选中，再到「车针盒」点击空位放入</div>
+        <div class="library-hint">🔵🟢🟡🔴⚫ 高速 · 无标/其他 &nbsp;|&nbsp; 点击车针选中，再到「车针盒」点击空位放入</div>
     </div>
 </div>
 <script>
@@ -724,9 +732,10 @@
             { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏', material: '钨钢' },
             { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏', material: '金刚砂' },
             { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田', material: '钨钢' },
-            { name: 'TC-302', color: '#9E9E9E', speed: '高速', vendor: '森田', material: '金刚砂' },
+            { name: 'TC-302', color: '', speed: '高速', vendor: '森田', material: '金刚砂' },
             { name: 'LA-001', color: '', speed: '低速', vendor: '马尼', material: '钨钢' },
             { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏', material: '金刚砂' },
+            { name: 'XX-001', color: '#9E9E9E', speed: '其他', vendor: '其他', material: '其他' },
         ];
 
         // ---------- 布局存储 ----------
@@ -737,6 +746,7 @@
         let filterText = '';
         let filterVendor = '';
         let filterMaterial = '';
+        let filterSpeed = '';
 
         let gridRows = 3;
         let gridCols = 4;
@@ -770,6 +780,7 @@
         const filterInput = document.getElementById('filterInput');
         const filterVendorSelect = document.getElementById('filterVendor');
         const filterMaterialSelect = document.getElementById('filterMaterial');
+        const filterSpeedSelect = document.getElementById('filterSpeed');
         const clearFilterBtn = document.getElementById('clearFilterBtn');
 
         const layoutSelect = document.getElementById('layoutSelect');
@@ -907,7 +918,6 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     if (data.layouts && typeof data.layouts === 'object') {
-                        // 合并导入的布局（覆盖同名）
                         let count = 0;
                         Object.keys(data.layouts).forEach(key => {
                             if (data.layouts[key].rows !== undefined && data.layouts[key].cols !== undefined) {
@@ -915,7 +925,6 @@
                                 count++;
                             }
                         });
-                        // 如果包含车针库数据，也导入
                         if (data.library && Array.isArray(data.library)) {
                             data.library.forEach(bur => {
                                 if (bur.name && !burLibrary.some(b => b.name === bur.name && b.vendor === bur.vendor)) {
@@ -977,7 +986,8 @@
                 const matchName = bur.name.toLowerCase().includes(filterText.toLowerCase());
                 const matchVendor = filterVendor === '' || bur.vendor === filterVendor;
                 const matchMaterial = filterMaterial === '' || bur.material === filterMaterial;
-                return matchName && matchVendor && matchMaterial;
+                const matchSpeed = filterSpeed === '' || bur.speed === filterSpeed;
+                return matchName && matchVendor && matchMaterial && matchSpeed;
             });
         }
 
@@ -1016,7 +1026,7 @@
                 if (filled) {
                     const color = bur.color || '';
                     const speed = bur.speed || '高速';
-                    const speedLabel = speed === '高速' ? '⚡高' : '🐢低';
+                    const speedLabel = speed;
                     const material = bur.material || '';
                     const materialDisplay = material ? `<span class="material-tag">${material}</span>` : '';
                     const vendorDisplay = bur.vendor ? `<span class="vendor-name">${bur.vendor}</span>` : '';
@@ -1026,7 +1036,7 @@
                         <div class="bur-name">${bur.name}</div>
                         ${vendorDisplay}
                         <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">
-                            <span class="speed-tag" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</span>
+                            <span class="speed-tag" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : speed === '其他' ? 'background:#f0e8d0; color:#6a5a3a;' : 'background:#d4e2f5;'}">${speedLabel}</span>
                             ${materialDisplay}
                         </div>
                         <span class="remove-icon" data-index="${i}" data-action="removeFromBox">✕</span>
@@ -1139,20 +1149,21 @@
             filtered.forEach((bur, idx) => {
                 const color = bur.color || '';
                 const speed = bur.speed || '高速';
-                const speedLabel = speed === '高速' ? '⚡高速' : '🐢低速';
+                const speedLabel = speed;
                 const material = bur.material || '';
                 const materialDisplay = material ? `<span class="material-badge">${material}</span>` : '';
                 const dotHtml = color ? `<div class="color-dot" style="background:${color};"></div>` : `<div class="color-dot" style="background:transparent; border:1px dashed #ccc;"></div>`;
                 const isSelected = (selectedBur === bur);
                 const vendorDisplay = bur.vendor ? `<span class="vendor-tag">🏷️ ${bur.vendor}</span>` : '';
                 const colorName = getColorName(color);
+                const speedStyle = speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : speed === '其他' ? 'background:#f0e8d0; color:#6a5a3a;' : 'background:#d4e2f5;';
                 html += `
                     <div class="library-item ${isSelected ? 'selected' : ''}" data-bur-idx="${burLibrary.indexOf(bur)}" data-type="library">
                         ${dotHtml}
                         <div class="item-info">
                             <span class="item-name">${bur.name}</span>
                             <span class="item-meta">
-                                <span class="speed-badge" style="${speed === '低速' ? 'background:#e8ecf0; color:#3d4f62;' : 'background:#d4e2f5;'}">${speedLabel}</span>
+                                <span class="speed-badge" style="${speedStyle}">${speedLabel}</span>
                                 ${materialDisplay}
                                 ${vendorDisplay}
                                 ${colorName ? '· ' + colorName : '· 无标'}
@@ -1258,7 +1269,7 @@
                 setStatus(`车针 "${trimmed}（${vendor}）" 已存在`, true);
                 return false;
             }
-            const finalColor = (speed === '低速') ? '' : (color || '');
+            const finalColor = (color === '') ? '' : color;
             burLibrary.push({ 
                 name: trimmed, 
                 vendor: vendor || '', 
@@ -1313,6 +1324,7 @@
             filterText = filterInput.value.trim();
             filterVendor = filterVendorSelect.value;
             filterMaterial = filterMaterialSelect.value;
+            filterSpeed = filterSpeedSelect.value;
             renderLibrary();
         }
 
@@ -1320,9 +1332,11 @@
             filterInput.value = '';
             filterVendorSelect.value = '';
             filterMaterialSelect.value = '';
+            filterSpeedSelect.value = '';
             filterText = '';
             filterVendor = '';
             filterMaterial = '';
+            filterSpeed = '';
             renderLibrary();
         }
 
@@ -1337,9 +1351,10 @@
                     { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏', material: '钨钢' },
                     { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏', material: '金刚砂' },
                     { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田', material: '钨钢' },
-                    { name: 'TC-302', color: '#9E9E9E', speed: '高速', vendor: '森田', material: '金刚砂' },
+                    { name: 'TC-302', color: '', speed: '高速', vendor: '森田', material: '金刚砂' },
                     { name: 'LA-001', color: '', speed: '低速', vendor: '马尼', material: '钨钢' },
                     { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏', material: '金刚砂' },
+                    { name: 'XX-001', color: '#9E9E9E', speed: '其他', vendor: '其他', material: '其他' },
                 ];
             }
 
@@ -1396,9 +1411,10 @@
                     { name: 'RA-201', color: '#FDD835', speed: '高速', vendor: '登士柏', material: '钨钢' },
                     { name: 'RA-202', color: '#E53935', speed: '高速', vendor: '登士柏', material: '金刚砂' },
                     { name: 'TC-301', color: '#212121', speed: '高速', vendor: '森田', material: '钨钢' },
-                    { name: 'TC-302', color: '#9E9E9E', speed: '高速', vendor: '森田', material: '金刚砂' },
+                    { name: 'TC-302', color: '', speed: '高速', vendor: '森田', material: '金刚砂' },
                     { name: 'LA-001', color: '', speed: '低速', vendor: '马尼', material: '钨钢' },
                     { name: 'LA-002', color: '', speed: '低速', vendor: '登士柏', material: '金刚砂' },
+                    { name: 'XX-001', color: '#9E9E9E', speed: '其他', vendor: '其他', material: '其他' },
                     { name: 'FG-110', color: '#43A047', speed: '高速', vendor: '马尼', material: '钨钢' },
                     { name: 'LA-003', color: '', speed: '低速', vendor: '森田', material: '金刚砂' },
                 ];
@@ -1423,6 +1439,7 @@
             filterInput.addEventListener('input', applyFilter);
             filterVendorSelect.addEventListener('change', applyFilter);
             filterMaterialSelect.addEventListener('change', applyFilter);
+            filterSpeedSelect.addEventListener('change', applyFilter);
             clearFilterBtn.addEventListener('click', clearFilter);
 
             saveLayoutBtn.addEventListener('click', () => {
@@ -1452,10 +1469,8 @@
                 }
             });
 
-            // 导出
             exportLayoutBtn.addEventListener('click', exportLayouts);
 
-            // 导入
             importLayoutBtn.addEventListener('click', () => {
                 fileInput.click();
             });
